@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Plus, X, ExternalLink, BookOpen } from 'lucide-react';
 
 // --- Types ---
-type Category = 'Syllabus' | 'Policy' | 'Tooling' | 'Research' | 'All';
+type Category = 'Syllabus' | 'Policy' | 'Tooling' | 'Research' | 'Book' | 'All';
 
 interface Resource {
   id: string;
@@ -61,10 +61,11 @@ const initialResources: Resource[] = [
 
 export default function FacultyResourceHub() {
   // --- State Management ---
-  const [resources, setResources] = useState<Resource[]>(initialResources);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category | 'All'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -73,6 +74,25 @@ export default function FacultyResourceHub() {
     category: 'Syllabus' as Category,
     url: ''
   });
+
+  // --- Local Storage Effects ---
+  // 1. Load data from local storage when the component mounts
+  useEffect(() => {
+    const savedResources = localStorage.getItem('facultyResources');
+    if (savedResources) {
+      setResources(JSON.parse(savedResources));
+    } else {
+      setResources(initialResources);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // 2. Save data to local storage whenever the 'resources' state changes
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('facultyResources', JSON.stringify(resources));
+    }
+  }, [resources, isLoaded]);
 
   // --- Derived State (Filtering) ---
   const filteredResources = useMemo(() => {
@@ -107,9 +127,13 @@ export default function FacultyResourceHub() {
       case 'Syllabus': return 'bg-blue-100 text-blue-700';
       case 'Tooling': return 'bg-emerald-100 text-emerald-700';
       case 'Research': return 'bg-purple-100 text-purple-700';
+      case 'Book': return 'bg-orange-100 text-orange-700';
       default: return 'bg-slate-100 text-slate-700';
     }
   };
+
+  // Prevent UI rendering before local storage is loaded to avoid hydration mismatch
+  if (!isLoaded) return null;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -163,6 +187,7 @@ export default function FacultyResourceHub() {
                 <option value="Policy">Policy</option>
                 <option value="Tooling">Tooling</option>
                 <option value="Research">Research</option>
+                <option value="Book">Book</option>
               </select>
             </div>
           </div>
@@ -260,6 +285,7 @@ export default function FacultyResourceHub() {
                   <option value="Policy">Policy</option>
                   <option value="Tooling">Tooling</option>
                   <option value="Research">Research</option>
+                  <option value="Book">Book</option>
                 </select>
               </div>
 
