@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Plus, X, ExternalLink, BookOpen } from 'lucide-react';
+import { Search, Plus, X, ExternalLink, BookOpen, Upload } from 'lucide-react';
 
 // --- Types ---
 type Category = 'Syllabus' | 'Policy' | 'Tooling' | 'Research' | 'Book' | 'All';
@@ -13,6 +13,7 @@ interface Resource {
   category: Category;
   url: string;
   dateAdded: string;
+  isFile?: boolean; // New flag to track if it was an uploaded file
 }
 
 // --- Mock Data ---
@@ -74,9 +75,9 @@ export default function FacultyResourceHub() {
     category: 'Syllabus' as Category,
     url: ''
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null); // New state for PDF uploads
 
   // --- Local Storage Effects ---
-  // 1. Load data from local storage when the component mounts
   useEffect(() => {
     const savedResources = localStorage.getItem('facultyResources');
     if (savedResources) {
@@ -87,7 +88,6 @@ export default function FacultyResourceHub() {
     setIsLoaded(true);
   }, []);
 
-  // 2. Save data to local storage whenever the 'resources' state changes
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem('facultyResources', JSON.stringify(resources));
@@ -107,18 +107,33 @@ export default function FacultyResourceHub() {
   // --- Handlers ---
   const handleAddResource = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if we are uploading a Book PDF or using a standard URL
+    let finalUrl = formData.url || '#';
+    let isFile = false;
+
+    if (formData.category === 'Book' && selectedFile) {
+      // Create a temporary browser URL for the uploaded PDF
+      finalUrl = URL.createObjectURL(selectedFile);
+      isFile = true;
+    }
+
     const newResource: Resource = {
       id: Date.now().toString(),
       title: formData.title,
       description: formData.description,
       category: formData.category,
-      url: formData.url || '#',
+      url: finalUrl,
       dateAdded: new Date().toISOString().split('T')[0],
+      isFile: isFile,
     };
     
     setResources([newResource, ...resources]);
+    
+    // Reset Everything
     setIsModalOpen(false);
-    setFormData({ title: '', description: '', category: 'Syllabus', url: '' }); // Reset form
+    setFormData({ title: '', description: '', category: 'Syllabus', url: '' });
+    setSelectedFile(null);
   };
 
   const getCategoryColor = (category: string) => {
@@ -132,7 +147,7 @@ export default function FacultyResourceHub() {
     }
   };
 
-  // Prevent UI rendering before local storage is loaded to avoid hydration mismatch
+  // Prevent UI rendering before local storage is loaded
   if (!isLoaded) return null;
 
   return (
@@ -225,7 +240,7 @@ export default function FacultyResourceHub() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
                   >
-                    Visit Link
+                    {resource.isFile ? 'Open PDF' : 'Visit Link'}
                     <ExternalLink className="ml-1 h-4 w-4" />
                   </a>
                 </div>
@@ -279,7 +294,10 @@ export default function FacultyResourceHub() {
                 <select 
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value as Category})}
+                  onChange={(e) => {
+                    setFormData({...formData, category: e.target.value as Category});
+                    setSelectedFile(null); // Clear file if they switch categories
+                  }}
                 >
                   <option value="Syllabus">Syllabus</option>
                   <option value="Policy">Policy</option>
@@ -289,17 +307,44 @@ export default function FacultyResourceHub() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">URL / Link</label>
-                <input 
-                  required
-                  type="url" 
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.url}
-                  onChange={(e) => setFormData({...formData, url: e.target.value})}
-                  placeholder="https://..."
-                />
-              </div>
+              {/* Conditional Rendering: File Upload for Books, URL for everything else */}
+              {formData.category === 'Book' ? (
+                 <div>
+                 <label className="block text-sm font-medium text-slate-700 mb-1">Upload PDF</label>
+                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md hover:border-blue-400 transition-colors bg-slate-50">
+                   <div className="space-y-1 text-center">
+                     <Upload className="mx-auto h-8 w-8 text-slate-400" />
+                     <div className="flex text-sm text-slate-600 justify-center">
+                       <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
+                         <span>Select a file</span>
+                         <input 
+                           type="file" 
+                           accept="application/pdf"
+                           className="sr-only" 
+                           required
+                           onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                         />
+                       </label>
+                     </div>
+                     <p className="text-xs text-slate-500">
+                       {selectedFile ? selectedFile.name : "PDF up to 10MB"}
+                     </p>
+                   </div>
+                 </div>
+               </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">URL / Link</label>
+                  <input 
+                    required
+                    type="url" 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.url}
+                    onChange={(e) => setFormData({...formData, url: e.target.value})}
+                    placeholder="https://..."
+                  />
+                </div>
+              )}
               
               <div className="pt-4 flex justify-end space-x-3">
                 <button 
